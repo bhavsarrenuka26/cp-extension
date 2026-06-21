@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "CP Boilerplate Generator",
+  "version": "2.0",
+  "description": "Auto-detects problem type and generates C++ boilerplate. Includes history, dark mode, and custom snippets.",
+  "permissions": [
+    "activeTab",
+    "clipboardWrite",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://leetcode.com/problems/*",
+    "https://codeforces.com/problemset/problem/*",
+    "https://codeforces.com/contest/*/problem/*",
+    "https://www.codechef.com/*",
+    "https://atcoder.jp/contests/*/tasks/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CP Boilerplate Generator"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://leetcode.com/problems/*",
+        "https://codeforces.com/problemset/problem/*",
+        "https://codeforces.com/contest/*/problem/*",
+        "https://www.codechef.com/*",
+        "https://atcoder.jp/contests/*/tasks/*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
