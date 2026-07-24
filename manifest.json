@@ -10,11 +10,10 @@
     "storage"
   ],
   "host_permissions": [
-    "https://leetcode.com/problems/*",
-    "https://codeforces.com/problemset/problem/*",
-    "https://codeforces.com/contest/*/problem/*",
+    "https://leetcode.com/*",
+    "https://codeforces.com/*",
     "https://www.codechef.com/*",
-    "https://atcoder.jp/contests/*/tasks/*"
+    "https://atcoder.jp/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -24,6 +23,7 @@
     {
       "matches": [
         "https://leetcode.com/problems/*",
+        "https://leetcode.com/contest/*/problems/*",
         "https://codeforces.com/problemset/problem/*",
         "https://codeforces.com/contest/*/problem/*",
         "https://www.codechef.com/*",
@@ -34,5 +34,12 @@
   ],
   "background": {
     "service_worker": "background.js"
-  }
+    
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["model/model.json"],
+      "matches":   ["<all_urls>"]
+    }
+  ]
 }
