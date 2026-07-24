@@ -1,5 +1,7 @@
 
-//  Template generators
+importScripts("nb_classifier.js");
+
+//  Template generators 
 
 function buildTemplate(type, title, customSnippets) {
     // Check if this is a custom snippet first
@@ -363,26 +365,72 @@ function buildTemplate(type, title, customSnippets) {
     return header + (templates[type] || templates["standard"]);
 }
 
-//  Auto-detect best template type from page hints
 
-function detectType(hints) {
-    if (hints.hasTrie)         return "trie";
-    if (hints.hasDSU)          return "dsu";
-    if (hints.hasSegTree)      return "segment_tree";
-    if (hints.hasHash)         return "string_hashing";
-    if (hints.hasDijkstra)     return "shortest_path";
-    if (hints.hasBinarySearch) return "binary_search";
-    if (hints.hasGraph)        return "graph";
-    if (hints.hasDP)           return "dp";
-    if (hints.hasMath)         return "math";
-    if (hints.hasTwoPtr)       return "two_pointers";
-    if (hints.hasPrefix)       return "prefix_sum";
-    if (hints.hasBacktrack)    return "backtracking";
-    if (hints.hasGreedy)       return "greedy";
-    return "standard";
+
+// A map to translate LeetCode/Codeforces official tags into template names
+const TAG_TRANSLATOR = {
+    "dynamic-programming": "dp",
+    "dp": "dp",
+    "memoization": "dp",
+    "graph": "graph",
+    "graphs": "graph",
+    "breadth-first-search": "graph",
+    "depth-first-search": "graph",
+    "binary-search": "binary_search",
+    "two-pointers": "two_pointers",
+    "segment-tree": "segment_tree",
+    "union-find": "dsu",
+    "dsu": "dsu",
+    "shortest-path": "shortest_path",
+    "shortest paths": "shortest_path",
+    "string-matching": "string_hashing",
+    "hashing": "string_hashing",
+    "trie": "trie",
+    "math": "math",
+    "greedy": "greedy",
+    "backtracking": "backtracking",
+    "prefix-sum": "prefix_sum"
+};
+
+async function detectType(data) {
+    //  OFFICIAL TAGS 
+    if (data.officialTags && data.officialTags.length > 0) {
+        for (const tag of data.officialTags) {
+            const normalizedTag = tag.toLowerCase().replace(/ /g, '-');
+            if (TAG_TRANSLATOR[normalizedTag]) {
+                return {
+                    type: TAG_TRANSLATOR[normalizedTag],
+                    confidence: 1.0,
+                    source: `Official Tag (${tag})`
+                };
+            }
+        }
+    }
+
+    //  ML MODEL FALLBACK 
+    let nbLabel = "standard";
+    let nbConfidence = 0;
+
+    if (data.statementText && data.statementText.length > 100) {
+        try {
+            const nb = await classifyProblem(data.statementText);
+            nbLabel = nb.label;
+            nbConfidence = nb.confidence;
+        } catch (e) {
+            console.warn("NB classifier failed:", e);
+        }
+    }
+
+    return {
+        type: nbLabel,
+        confidence: nbConfidence,
+        source: "ML Prediction"
+    };
 }
 
-//  History 
+
+//  History helpers 
+
 function addToHistory(entry) {
     chrome.storage.local.get(["history"], (result) => {
         let history = result.history || [];
@@ -392,7 +440,7 @@ function addToHistory(entry) {
     });
 }
 
-// message handler 
+//   message handler 
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
@@ -401,12 +449,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const title = data.title || "Unknown Problem";
         const userType = request.type;
 
-        // Load custom snippets 
-        chrome.storage.local.get(["customSnippets"], (result) => {
+        // Load custom snippets then generate
+        chrome.storage.local.get(["customSnippets"], async (result) => {
             const customSnippets = result.customSnippets || {};
-            const resolvedType = (userType === "auto")
-                ? detectType(data)
-                : userType;
+            // detectType is async (runs NB classifier + heuristic blend)
+            let detection;
+            if (userType === "auto") {
+                detection = await detectType(data);
+            } else {
+                detection = { type: userType, confidence: 1.0, source: "manual" };
+            }
+
+            const resolvedType = detection.type;
+
+
 
             const code = buildTemplate(resolvedType, title, customSnippets);
 
@@ -418,10 +474,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 timestamp: Date.now(),
             });
 
-            sendResponse({ code, detectedType: resolvedType });
+            sendResponse({
+                code,
+                detectedType: resolvedType,
+                confidence: detection.confidence,
+                detectionSource: detection.source,   // "nb", "heuristic", "nb+heuristic", "manual"
+                secondType: data.secondType || null,
+                secondScore: data.secondScore || 0,
+                topScore: data.topScore || 0,
+                platform: data.platform || null,
+                nBound: data.nBound || null,
+                officialTags: data.officialTags || [],
+                difficulty: data.difficulty || null,
+            });
         });
 
-        return true; // async
+        return true; 
     }
 
     if (request.action === "get_history") {
